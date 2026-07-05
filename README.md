@@ -15,6 +15,9 @@ authenticated browser tabs.
   their credentials; it fetches their workflows and executes them tab-side.
 
 ---
+<img width="1553" height="1497" alt="image" src="https://github.com/user-attachments/assets/4d303179-f09d-4f09-94f7-1c0bf7fae912" />
+<img width="3064" height="1401" alt="image" src="https://github.com/user-attachments/assets/55fdbf20-2e67-4990-83fc-1dffdb29a604" />
+
 
 ## Table of contents
 
