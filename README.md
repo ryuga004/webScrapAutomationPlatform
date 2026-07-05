@@ -116,6 +116,28 @@ npm run lint       # eslint
 
 ---
 
+## Testing & CI
+
+Unit tests (Vitest) cover the service layer, security strategies, and
+validation. Because services depend on interfaces, they run against in-memory
+fakes ([`src/server/testing/fakes.ts`](src/server/testing/fakes.ts)) — **no
+database required**.
+
+```bash
+npm test            # run once
+npm run test:watch  # watch mode
+npm run test:coverage
+```
+
+[GitHub Actions](.github/workflows/ci.yml) runs on every push/PR:
+
+- **test** job — lint → typecheck → unit tests → production build.
+- **migrations** job — starts a Postgres service and runs `prisma migrate
+  deploy` + `prisma migrate status` to prove the committed migration applies
+  cleanly with no drift.
+
+---
+
 ## The browser extension
 
 Workflows are **designed** in the dashboard but **executed** in the extension,

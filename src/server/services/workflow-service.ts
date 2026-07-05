@@ -23,7 +23,9 @@ export class WorkflowService {
     return wf;
   }
 
-  create(userId: string, body: unknown): Promise<Workflow> {
+  async create(userId: string, body: unknown): Promise<Workflow> {
+    // `async` so validation failures reject the promise rather than throwing
+    // synchronously — a uniform contract across every service method.
     return this.repo.create(userId, this.parseAndValidate(body));
   }
 
