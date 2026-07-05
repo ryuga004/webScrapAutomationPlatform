@@ -1,10 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { X, MousePointerSquareDashed } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { MousePointerClick, X } from "lucide-react";
 import { getNodeType } from "@/lib/nodes";
-import type { FieldDef } from "@/lib/nodes";
-import type { LocatorValue, Mapping } from "@/lib/nodes";
+import type { FieldDef, LocatorValue, Mapping } from "@/lib/nodes";
 import { CAT_CLASSES } from "@/lib/node-ui";
 import { LOCATOR_TYPES, ELEMENT_ROLES } from "@/lib/types";
 import type { LocatorType } from "@/lib/types";
@@ -17,14 +16,12 @@ export function ConfigModal({
   nodeType,
   initialConfig,
   isNew,
-  defaultUrl,
   onSave,
   onClose,
 }: {
   nodeType: string;
   initialConfig: Record<string, unknown>;
   isNew: boolean;
-  defaultUrl?: string;
   onSave: (config: Record<string, unknown>) => void;
   onClose: () => void;
 }) {
@@ -32,14 +29,14 @@ export function ConfigModal({
   const [config, setConfig] = useState<Record<string, unknown>>(initialConfig);
   if (!def) return null;
   const cat = CAT_CLASSES[def.category];
-  const listMode = def.type === "loop";
 
   const set = (name: string, value: unknown) =>
     setConfig((c) => ({ ...c, [name]: value }));
 
+  const visibleFields = def.fields.filter((f) => !f.showIf || f.showIf(config));
+
   function handleSave() {
-    // Enforce required fields.
-    for (const f of def!.fields) {
+    for (const f of visibleFields) {
       if (!f.required) continue;
       const v = config[f.name];
       const empty =
@@ -82,14 +79,12 @@ export function ConfigModal({
               This node has no settings — it just runs.
             </p>
           )}
-          {def.fields.map((f) => (
+          {visibleFields.map((f) => (
             <Field
               key={f.name}
               field={f}
               value={config[f.name]}
               onChange={(v) => set(f.name, v)}
-              listMode={listMode}
-              defaultUrl={defaultUrl}
             />
           ))}
         </div>
@@ -117,14 +112,10 @@ function Field({
   field,
   value,
   onChange,
-  listMode,
-  defaultUrl,
 }: {
   field: FieldDef;
   value: unknown;
   onChange: (v: unknown) => void;
-  listMode?: boolean;
-  defaultUrl?: string;
 }) {
   return (
     <div>
@@ -132,13 +123,7 @@ function Field({
         {field.label}
         {field.required && <span className="text-error"> *</span>}
       </label>
-      <FieldInput
-        field={field}
-        value={value}
-        onChange={onChange}
-        listMode={listMode}
-        defaultUrl={defaultUrl}
-      />
+      <FieldInput field={field} value={value} onChange={onChange} />
       {field.help && (
         <p className="mt-1 text-xs text-on-surface-variant">{field.help}</p>
       )}
@@ -150,14 +135,10 @@ function FieldInput({
   field,
   value,
   onChange,
-  listMode,
-  defaultUrl,
 }: {
   field: FieldDef;
   value: unknown;
   onChange: (v: unknown) => void;
-  listMode?: boolean;
-  defaultUrl?: string;
 }) {
   switch (field.kind) {
     case "textarea":
@@ -195,14 +176,7 @@ function FieldInput({
         </select>
       );
     case "locator":
-      return (
-        <LocatorInput
-          value={value as LocatorValue}
-          onChange={onChange}
-          listMode={listMode}
-          defaultUrl={defaultUrl}
-        />
-      );
+      return <LocatorInput value={value as LocatorValue} onChange={onChange} />;
     case "mappings":
       return <MappingsInput value={value as Mapping[]} onChange={onChange} />;
     case "variable":
@@ -224,55 +198,51 @@ function FieldInput({
 function LocatorInput({
   value,
   onChange,
-  listMode,
-  defaultUrl,
 }: {
   value: LocatorValue | undefined;
   onChange: (v: LocatorValue) => void;
-  listMode?: boolean;
-  defaultUrl?: string;
 }) {
   const v: LocatorValue = value ?? { by: "text", selector: "" };
   const meta = LOCATOR_TYPES.find((t) => t.value === v.by);
   const [picking, setPicking] = useState(false);
-  const [status, setStatus] = useState<string | null>(null);
+  const [pickMsg, setPickMsg] = useState<string | null>(null);
+  const cleanupRef = useRef<(() => void) | null>(null);
 
-  async function handlePick() {
-    const url =
-      defaultUrl && /^https?:\/\//.test(defaultUrl)
-        ? defaultUrl
-        : window.prompt(
-            "Open which page to pick from? (add a 'Go to URL' node to skip this)",
-            "https://",
-          );
-    if (!url) return;
+  // Ask the WebBot extension to enter element-picker mode on the target tab.
+  const pickFromPage = () => {
+    if (picking) return;
+    setPickMsg(null);
     setPicking(true);
-    setStatus(
-      "Firefox is opening — browse to the page you want, then press “Pick” in the top bar and click the element.",
-    );
-    try {
-      const res = await fetch("/api/pick", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url, mode: listMode ? "list" : "single" }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
-        setStatus(data.error ?? "Picking failed.");
+    const onMsg = (e: MessageEvent) => {
+      const d = e.data;
+      if (!d || d.__webbot !== "PICK_RESULT") return;
+      finish();
+      if (d.error) {
+        setPickMsg(d.error);
         return;
       }
-      onChange({ by: "css", selector: data.selector });
-      setStatus(
-        listMode
-          ? `Matched ${data.count} item(s) with this selector.`
-          : "Element selected.",
-      );
-    } catch {
-      setStatus("Could not reach the picker.");
-    } finally {
+      if (!d.cancelled && d.locator) {
+        onChange({ by: "text", selector: "", ...d.locator } as LocatorValue);
+        if (d.count > 1) setPickMsg(`Matched ${d.count} similar elements.`);
+      }
+    };
+    const timer = window.setTimeout(() => {
+      finish();
+      setPickMsg("No response — is the WebBot extension installed and enabled?");
+    }, 120000);
+    function finish() {
+      window.clearTimeout(timer);
+      window.removeEventListener("message", onMsg);
+      cleanupRef.current = null;
       setPicking(false);
     }
-  }
+    cleanupRef.current = finish;
+    window.addEventListener("message", onMsg);
+    window.postMessage({ __webbot: "PICK_REQUEST" }, "*");
+  };
+
+  // Tear down the listener if the modal closes mid-pick.
+  useEffect(() => () => cleanupRef.current?.(), []);
 
   return (
     <div className="space-y-2 rounded-lg border border-outline-variant bg-surface-container-low p-2">
@@ -307,28 +277,33 @@ function LocatorInput({
             ))}
           </select>
         )}
+      </div>
+      <div className="flex items-center gap-2">
+        <input
+          value={v.selector}
+          onChange={(e) => onChange({ ...v, selector: e.target.value })}
+          placeholder={meta?.placeholder ?? "Identifier"}
+          className={INPUT}
+        />
         <button
           type="button"
-          onClick={handlePick}
+          onClick={pickFromPage}
           disabled={picking}
-          className="ml-auto flex items-center gap-1 rounded-md border border-primary px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary-container/20 disabled:opacity-60"
-          title="Open the page and click the element to auto-fill the selector"
+          title="Click an element on your target tab to fill this automatically"
+          className="flex shrink-0 items-center gap-1.5 rounded-lg border border-primary px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/10 disabled:opacity-60"
         >
-          <MousePointerSquareDashed size={14} />
-          {picking ? "Picking…" : listMode ? "Pick list" : "Pick"}
+          <MousePointerClick size={15} />
+          {picking ? "Picking…" : "Pick"}
         </button>
       </div>
-      <input
-        value={v.selector}
-        onChange={(e) => onChange({ ...v, selector: e.target.value })}
-        placeholder={meta?.placeholder ?? "Identifier"}
-        className={INPUT}
-      />
-      {status ? (
-        <p className="text-xs text-primary">{status}</p>
-      ) : (
-        meta && <p className="text-xs text-on-surface-variant">{meta.hint}</p>
+      {picking && (
+        <p className="text-xs text-primary">
+          Switch to the tab you want to automate and click an element (Shift =
+          all similar, Esc = cancel).
+        </p>
       )}
+      {pickMsg && <p className="text-xs text-amber-600">{pickMsg}</p>}
+      {meta && !picking && <p className="text-xs text-on-surface-variant">{meta.hint}</p>}
     </div>
   );
 }

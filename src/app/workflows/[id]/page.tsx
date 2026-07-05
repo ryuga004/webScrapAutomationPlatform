@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -10,6 +10,7 @@ import {
   Controls,
   MiniMap,
   addEdge,
+  reconnectEdge,
   useNodesState,
   useEdgesState,
   useReactFlow,
@@ -22,11 +23,12 @@ import "@xyflow/react/dist/style.css";
 import { ChevronRight } from "lucide-react";
 import { Palette } from "@/components/workflow/Palette";
 import { NodeCard, type WebbotNodeData } from "@/components/workflow/NodeCard";
+import { DeletableEdge } from "@/components/workflow/DeletableEdge";
 import { ConfigModal } from "@/components/workflow/ConfigModal";
-import { RunResultPanel } from "@/components/workflow/RunResultPanel";
+import { useAuth } from "@/components/AuthProvider";
+import { RequireAuth } from "@/components/RequireAuth";
 import { getNodeType } from "@/lib/nodes";
 import { defaultConfig } from "@/lib/node-format";
-import type { WorkflowRunResult } from "@/lib/workflow";
 
 type ModalState =
   | { mode: "add"; nodeType: string; config: Record<string, unknown> }
@@ -38,7 +40,7 @@ type ModalState =
     };
 
 const EDGE_OPTIONS = {
-  type: "default",
+  type: "deletable",
   style: { stroke: "#22d3ee", strokeWidth: 2 },
   markerEnd: { type: MarkerType.ArrowClosed, color: "#22d3ee" },
 };
@@ -58,12 +60,14 @@ function Editor() {
   const [modal, setModal] = useState<ModalState | null>(null);
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
-  const [running, setRunning] = useState<null | "test" | "run">(null);
-  const [result, setResult] = useState<WorkflowRunResult | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const rf = useReactFlow();
+  const { authFetch } = useAuth();
 
   const nodeTypes = useMemo(() => ({ webbot: NodeCard }), []);
+  const edgeTypes = useMemo(() => ({ deletable: DeletableEdge }), []);
+  // Tracks whether an in-progress edge reconnect landed on a valid handle.
+  const reconnectOk = useRef(true);
 
   // Load an existing workflow, or seed a blank one with a Start node.
   useEffect(() => {
@@ -80,7 +84,7 @@ function Editor() {
     }
     let cancelled = false;
     (async () => {
-      const res = await fetch(`/api/workflows/${id}`);
+      const res = await authFetch(`/api/workflows/${id}`);
       if (!res.ok) {
         if (!cancelled) {
           setLoading(false);
@@ -92,39 +96,72 @@ function Editor() {
       if (cancelled) return;
       setName(workflow.name);
       setNodes(
-        workflow.nodes.map((n: { id: string; type: string; position: { x: number; y: number }; config: Record<string, unknown> }) => ({
-          id: n.id,
-          type: "webbot",
-          position: n.position,
-          data: { nodeType: n.type, config: n.config } satisfies WebbotNodeData,
-        })),
+        workflow.nodes.map(
+          (n: {
+            id: string;
+            type: string;
+            position: { x: number; y: number };
+            config: Record<string, unknown>;
+          }) => ({
+            id: n.id,
+            type: "webbot",
+            position: n.position,
+            data: { nodeType: n.type, config: n.config } satisfies WebbotNodeData,
+          }),
+        ),
       );
       setEdges(
-        workflow.edges.map((e: { id: string; source: string; target: string; sourceHandle?: string | null; targetHandle?: string | null }) => ({
-          ...e,
-          ...EDGE_OPTIONS,
-        })),
+        workflow.edges.map(
+          (e: {
+            id: string;
+            source: string;
+            target: string;
+            sourceHandle?: string | null;
+            targetHandle?: string | null;
+          }) => ({ ...e, ...EDGE_OPTIONS }),
+        ),
       );
       setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [id, isNew, setNodes, setEdges]);
+  }, [id, isNew, setNodes, setEdges, authFetch]);
 
   const onConnect = useCallback(
     (c: Connection) => setEdges((eds) => addEdge({ ...c, ...EDGE_OPTIONS }, eds)),
     [setEdges],
   );
 
-  // Palette click → open the config modal for a brand-new node.
+  // Drag an edge's endpoint off a handle to disconnect it. If it lands on
+  // another handle we rewire it; if it's dropped in empty space we remove it.
+  const onReconnectStart = useCallback(() => {
+    reconnectOk.current = false;
+  }, []);
+
+  const onReconnect = useCallback(
+    (oldEdge: Edge, newConnection: Connection) => {
+      reconnectOk.current = true;
+      setEdges((eds) => reconnectEdge(oldEdge, newConnection, eds));
+    },
+    [setEdges],
+  );
+
+  const onReconnectEnd = useCallback(
+    (_: unknown, edge: Edge) => {
+      if (!reconnectOk.current) {
+        setEdges((eds) => eds.filter((e) => e.id !== edge.id));
+      }
+    },
+    [setEdges],
+  );
+
   const handleAdd = useCallback((type: string) => {
     const def = getNodeType(type);
     if (!def) return;
     setModal({ mode: "add", nodeType: type, config: defaultConfig(def) });
   }, []);
 
-  // Double-click an existing node → edit its config.
   const onNodeDoubleClick = useCallback((_: unknown, node: Node) => {
     const d = node.data as WebbotNodeData;
     setModal({
@@ -148,8 +185,6 @@ function Editor() {
         );
       } else {
         setNodes((nds) => {
-          // Place new nodes to the right of the rightmost node so they form a
-          // natural left-to-right chain instead of stacking on top of each other.
           const rightmost = nds.reduce(
             (acc, n) => (n.position.x > acc.x ? { x: n.position.x, y: n.position.y } : acc),
             { x: 0, y: 120 },
@@ -178,87 +213,43 @@ function Editor() {
     setTimeout(() => setToast(null), 2500);
   };
 
-  const buildPayload = useCallback(
-    () => ({
-      name,
-      viewport: rf.getViewport(),
-      nodes: nodes.map((n) => {
-        const d = n.data as WebbotNodeData;
-        return { id: n.id, type: d.nodeType, position: n.position, config: d.config };
-      }),
-      edges: edges.map((e) => ({
-        id: e.id,
-        source: e.source,
-        target: e.target,
-        sourceHandle: e.sourceHandle ?? null,
-        targetHandle: e.targetHandle ?? null,
-      })),
-    }),
-    [name, nodes, edges, rf],
-  );
-
-  // Save the workflow; returns its id (creating it if new), or null on failure.
-  const persist = useCallback(async (): Promise<string | null> => {
-    const res = await fetch(isNew ? "/api/workflows" : `/api/workflows/${id}`, {
-      method: isNew ? "POST" : "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(buildPayload()),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      flash(data.error ?? "Save failed");
-      return null;
-    }
-    return data.workflow.id as string;
-  }, [buildPayload, isNew, id]);
-
   const handleSave = useCallback(async () => {
     setSaving(true);
     try {
-      const savedId = await persist();
-      if (savedId && isNew) router.replace(`/workflows/${savedId}`);
-      else if (savedId) flash("Saved");
+      const payload = {
+        name,
+        viewport: rf.getViewport(),
+        nodes: nodes.map((n) => {
+          const d = n.data as WebbotNodeData;
+          return { id: n.id, type: d.nodeType, position: n.position, config: d.config };
+        }),
+        edges: edges.map((e) => ({
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          sourceHandle: e.sourceHandle ?? null,
+          targetHandle: e.targetHandle ?? null,
+        })),
+      };
+      const res = await authFetch(isNew ? "/api/workflows" : `/api/workflows/${id}`, {
+        method: isNew ? "POST" : "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        flash(data.error ?? "Save failed");
+        return;
+      }
+      if (isNew) router.replace(`/workflows/${data.workflow.id}`);
+      else flash("Saved");
     } finally {
       setSaving(false);
     }
-  }, [persist, isNew, router]);
-
-  // Test run: execute the current canvas graph without saving.
-  const handleTest = useCallback(async () => {
-    setRunning("test");
-    try {
-      const res = await fetch("/api/workflows/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildPayload()),
-      });
-      const data = await res.json();
-      if (!res.ok) flash(data.error ?? "Run failed");
-      else setResult(data.result);
-    } finally {
-      setRunning(null);
-    }
-  }, [buildPayload]);
-
-  // Run: save first, then execute the saved workflow (persists last run).
-  const handleRun = useCallback(async () => {
-    setRunning("run");
-    try {
-      const savedId = await persist();
-      if (!savedId) return;
-      if (isNew) router.replace(`/workflows/${savedId}`);
-      const res = await fetch(`/api/workflows/${savedId}/run`, { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) flash(data.error ?? "Run failed");
-      else setResult(data.result);
-    } finally {
-      setRunning(null);
-    }
-  }, [persist, isNew, router]);
+  }, [name, nodes, edges, rf, isNew, id, router, authFetch]);
 
   return (
     <div className="flex h-screen flex-col bg-surface">
-      {/* Toolbar */}
       <header className="z-50 flex h-16 items-center justify-between border-b border-outline-variant bg-surface px-6">
         <div className="flex items-center gap-4">
           <span className="font-display text-xl font-bold tracking-tight text-primary">
@@ -277,23 +268,10 @@ function Editor() {
             />
           </nav>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleTest}
-            disabled={running !== null}
-            title="Run the current canvas without saving"
-            className="rounded-lg border border-outline-variant px-4 py-2 text-xs font-semibold uppercase tracking-wide text-on-surface hover:bg-surface-container disabled:opacity-60"
-          >
-            {running === "test" ? "Testing…" : "Test run"}
-          </button>
-          <button
-            onClick={handleRun}
-            disabled={running !== null}
-            title="Save and run the workflow"
-            className="rounded-lg bg-primary-container px-4 py-2 text-xs font-semibold uppercase tracking-wide text-on-primary-container hover:opacity-90 disabled:opacity-60"
-          >
-            {running === "run" ? "Running…" : "Run"}
-          </button>
+        <div className="flex items-center gap-3">
+          <span className="hidden text-xs text-on-surface-variant sm:inline">
+            Run this workflow from the WebBot browser extension
+          </span>
           <button
             onClick={handleSave}
             disabled={saving}
@@ -319,8 +297,12 @@ function Editor() {
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
+              onReconnectStart={onReconnectStart}
+              onReconnect={onReconnect}
+              onReconnectEnd={onReconnectEnd}
               onNodeDoubleClick={onNodeDoubleClick}
               nodeTypes={nodeTypes}
+              edgeTypes={edgeTypes}
               defaultEdgeOptions={EDGE_OPTIONS}
               fitView
               proOptions={{ hideAttribution: true }}
@@ -335,7 +317,6 @@ function Editor() {
             </ReactFlow>
           )}
 
-          {/* Empty hint */}
           {!loading && nodes.length <= 1 && (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <p className="rounded-full bg-surface-container px-4 py-2 text-sm text-on-surface-variant shadow">
@@ -351,26 +332,9 @@ function Editor() {
           nodeType={modal.nodeType}
           initialConfig={modal.config}
           isNew={modal.mode === "add"}
-          defaultUrl={
-            nodes
-              .map((n) => n.data as WebbotNodeData)
-              .find((d) => d.nodeType === "goto")?.config?.url as string | undefined
-          }
           onSave={handleModalSave}
           onClose={() => setModal(null)}
         />
-      )}
-
-      {result && (
-        <RunResultPanel result={result} onClose={() => setResult(null)} />
-      )}
-
-      {running && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/20">
-          <div className="rounded-xl bg-surface px-5 py-4 text-sm font-medium text-on-surface shadow-lg">
-            Running workflow in Firefox…
-          </div>
-        </div>
       )}
 
       {toast && (
@@ -384,8 +348,10 @@ function Editor() {
 
 export default function WorkflowEditorPage() {
   return (
-    <ReactFlowProvider>
-      <Editor />
-    </ReactFlowProvider>
+    <RequireAuth>
+      <ReactFlowProvider>
+        <Editor />
+      </ReactFlowProvider>
+    </RequireAuth>
   );
 }

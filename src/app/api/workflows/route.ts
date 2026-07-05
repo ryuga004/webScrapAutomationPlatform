@@ -1,24 +1,31 @@
-import { createWorkflow, listWorkflows } from "@/lib/workflow";
-import { parseWorkflowInput, ValidationError } from "@/lib/validate-workflow";
+import { workflowService } from "@/server/container";
+import { requireUser } from "@/server/http/auth";
+import { handleError, json, preflight } from "@/server/http/responses";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const workflows = await listWorkflows();
-  return Response.json({ workflows });
+export function OPTIONS() {
+  return preflight();
+}
+
+export async function GET(request: Request) {
+  try {
+    const user = await requireUser(request);
+    const workflows = await workflowService.list(user.id);
+    return json({ workflows });
+  } catch (err) {
+    return handleError(err);
+  }
 }
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const input = parseWorkflowInput(body);
-    const workflow = await createWorkflow(input);
-    return Response.json({ workflow }, { status: 201 });
+    const user = await requireUser(request);
+    const body = await request.json().catch(() => ({}));
+    const workflow = await workflowService.create(user.id, body);
+    return json({ workflow }, 201);
   } catch (err) {
-    if (err instanceof ValidationError) {
-      return Response.json({ error: err.message }, { status: 400 });
-    }
-    return Response.json({ error: "Failed to create workflow" }, { status: 500 });
+    return handleError(err);
   }
 }

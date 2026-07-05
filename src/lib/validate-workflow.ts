@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { getNodeType } from "./nodes";
 import type { WorkflowEdge, WorkflowInput, WorkflowNode } from "./workflow";
+import { ValidationError } from "@/server/domain/errors";
 
-export class ValidationError extends Error {}
+export { ValidationError };
 
 function asString(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";

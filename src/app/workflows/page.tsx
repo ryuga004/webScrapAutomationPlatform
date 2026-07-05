@@ -3,23 +3,27 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import type { Workflow } from "@/lib/workflow";
+import { useAuth } from "@/components/AuthProvider";
+import { RequireAuth } from "@/components/RequireAuth";
 
-export default function WorkflowsPage() {
+function WorkflowsInner() {
+  const { user, logout, authFetch } = useAuth();
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(false);
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/workflows");
-    const data = await res.json();
+    const res = await authFetch("/api/workflows");
+    const data = await res.json().catch(() => ({}));
     setWorkflows(data.workflows ?? []);
     setLoading(false);
-  }, []);
+  }, [authFetch]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const res = await fetch("/api/workflows");
-      const data = await res.json();
+      const res = await authFetch("/api/workflows");
+      const data = await res.json().catch(() => ({}));
       if (!cancelled) {
         setWorkflows(data.workflows ?? []);
         setLoading(false);
@@ -28,12 +32,34 @@ export default function WorkflowsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [authFetch]);
 
   async function handleDelete(wf: Workflow) {
     if (!confirm(`Delete workflow "${wf.name}"?`)) return;
-    await fetch(`/api/workflows/${wf.id}`, { method: "DELETE" });
+    await authFetch(`/api/workflows/${wf.id}`, { method: "DELETE" });
     await load();
+  }
+
+  async function downloadExtension() {
+    setDownloading(true);
+    try {
+      const res = await authFetch("/api/extension/download");
+      if (!res.ok) {
+        alert("Could not build your extension. Please try again.");
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `webbot-extension-${user?.username ?? "you"}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloading(false);
+    }
   }
 
   return (
@@ -53,12 +79,36 @@ export default function WorkflowsPage() {
               Build website automations from atomic nodes, then run them any time.
             </p>
           </div>
-          <Link
-            href="/workflows/new"
-            className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-on-primary hover:opacity-90"
-          >
-            + New workflow
-          </Link>
+          <div className="flex flex-col items-end gap-3">
+            <div className="flex items-center gap-3 text-sm text-on-surface-variant">
+              <span>
+                Signed in as{" "}
+                <span className="font-medium text-on-surface">
+                  {user?.username}
+                </span>
+              </span>
+              <button
+                onClick={downloadExtension}
+                disabled={downloading}
+                title="Download a ready-to-use browser extension with your login already configured"
+                className="rounded-lg border border-outline-variant px-3 py-1.5 text-xs font-medium hover:border-primary hover:text-primary disabled:opacity-60"
+              >
+                {downloading ? "Building…" : "Download my extension"}
+              </button>
+              <button
+                onClick={logout}
+                className="rounded-lg border border-outline-variant px-3 py-1.5 text-xs font-medium hover:border-rose-400 hover:text-rose-600"
+              >
+                Sign out
+              </button>
+            </div>
+            <Link
+              href="/workflows/new"
+              className="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-on-primary hover:opacity-90"
+            >
+              + New workflow
+            </Link>
+          </div>
         </header>
 
         {loading ? (
@@ -117,5 +167,13 @@ export default function WorkflowsPage() {
         )}
       </div>
     </main>
+  );
+}
+
+export default function WorkflowsPage() {
+  return (
+    <RequireAuth>
+      <WorkflowsInner />
+    </RequireAuth>
   );
 }

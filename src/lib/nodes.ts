@@ -69,6 +69,8 @@ export interface FieldDef {
   required?: boolean;
   options?: FieldOption[];
   default?: string;
+  /** Only render (and validate) this field when the predicate passes. */
+  showIf?: (config: Record<string, unknown>) => boolean;
 }
 
 export interface OutputPort {
@@ -209,7 +211,25 @@ export const NODE_TYPES: NodeTypeDef[] = [
           { value: "element", label: "To element" },
         ],
       },
-      { ...LOCATOR_FIELD, required: false, label: "Element (if scrolling to element)" },
+      {
+        name: "speed",
+        label: "Speed (for “to bottom”)",
+        kind: "select",
+        default: "medium",
+        help: "Slower scrolling lets lazy-loaded / infinite-scroll content load. Fast jumps straight to the bottom.",
+        showIf: (c) => (c.direction ?? "bottom") === "bottom",
+        options: [
+          { value: "slow", label: "Slow (best for lazy loading)" },
+          { value: "medium", label: "Medium" },
+          { value: "fast", label: "Fast (instant jump)" },
+        ],
+      },
+      {
+        ...LOCATOR_FIELD,
+        required: false,
+        label: "Element (if scrolling to element)",
+        showIf: (c) => c.direction === "element",
+      },
     ],
     summarize: (c) => `Scroll ${c.direction || "bottom"}`,
   },
@@ -351,8 +371,9 @@ export const NODE_TYPES: NodeTypeDef[] = [
   {
     type: "loop",
     category: "logic",
-    label: "Loop / For Each",
-    description: "Repeat the connected body once per matching element.",
+    label: "Loop / Repeat",
+    description:
+      "Repeat the connected body: once per element, while a “Next” button exists (pagination), or a fixed number of times.",
     icon: "repeat",
     inputs: 1,
     outputs: [
@@ -360,11 +381,64 @@ export const NODE_TYPES: NodeTypeDef[] = [
       { id: "done", label: "done" },
     ],
     fields: [
-      { ...LOCATOR_FIELD, label: "Items to loop over", help: "Locator matching the list of elements." },
-      { name: "itemVar", label: "Item variable", kind: "variable", default: "item", placeholder: "item" },
-      { name: "limit", label: "Max iterations (optional)", kind: "number", placeholder: "e.g. 50" },
+      {
+        name: "mode",
+        label: "Repeat",
+        kind: "select",
+        default: "forEach",
+        options: [
+          { value: "forEach", label: "For each element on the page" },
+          { value: "whileExists", label: "While a button exists (pagination)" },
+          { value: "fixedCount", label: "A fixed number of times" },
+        ],
+      },
+      // For Each — iterate matched elements on the current page.
+      {
+        ...LOCATOR_FIELD,
+        label: "Items to loop over",
+        help: "Locator matching the list of elements.",
+        showIf: (c) => (c.mode ?? "forEach") === "forEach",
+      },
+      {
+        name: "itemVar",
+        label: "Item variable",
+        kind: "variable",
+        default: "item",
+        placeholder: "item",
+        showIf: (c) => (c.mode ?? "forEach") === "forEach",
+      },
+      // While Exists — pagination: click a "Next" button each pass until it's gone.
+      {
+        name: "nextLocator",
+        label: "“Next page” button",
+        kind: "locator",
+        required: true,
+        help: "Clicked after each pass. The loop ends when this element no longer exists.",
+        showIf: (c) => c.mode === "whileExists",
+      },
+      // Fixed Count — repeat a set number of times.
+      {
+        name: "count",
+        label: "Number of times",
+        kind: "number",
+        required: true,
+        placeholder: "e.g. 5",
+        showIf: (c) => c.mode === "fixedCount",
+      },
+      // Safety cap for the open-ended modes.
+      {
+        name: "limit",
+        label: "Max iterations (safety cap)",
+        kind: "number",
+        placeholder: "e.g. 50",
+        showIf: (c) => (c.mode ?? "forEach") !== "fixedCount",
+      },
     ],
-    summarize: (c) => `For each ${c.locator || "item"}`,
+    summarize: (c) => {
+      if (c.mode === "whileExists") return `While ${c.nextLocator || "“Next”"} exists`;
+      if (c.mode === "fixedCount") return `Repeat ${c.count || "N"}×`;
+      return `For each ${c.locator || "item"}`;
+    },
   },
   {
     type: "if",
