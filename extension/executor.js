@@ -231,7 +231,7 @@ const WebBotExecutor = (() => {
     }
   }
 
-  async function runWorkflow(wf, tabId, onProgress) {
+  async function runWorkflow(wf, tabId, onProgress, control) {
     const nodeById = new Map(wf.nodes.map((n) => [n.id, n]));
     const edges = wf.edges || [];
     const vars = {};
@@ -482,6 +482,11 @@ const WebBotExecutor = (() => {
     async function walk(startId, stopAt) {
       let current = startId;
       while (current && current !== stopAt) {
+        // Cooperative pause/stop checkpoint between every node.
+        if (control) {
+          await control.waitWhilePaused();
+          if (control.shouldStop()) return STOP;
+        }
         if (++execCount > 5000) throw new Error("too many steps");
         const node = nodeById.get(current);
         if (!node) break;

@@ -43,7 +43,13 @@ async function persistRun(state) {
   chrome.runtime.sendMessage({ __webbot: true, type: "RUN_STATE", state }).catch(() => {});
 }
 
+// Control channel + current state for the in-flight run (module scope so the
+// message router can pause/resume/stop it).
+let runControl = null;
+let currentState = null;
+
 async function startRun(workflow, tabId) {
+  runControl = { paused: false, stopped: false };
   const state = {
     status: "running",
     name: workflow.name || "Workflow",
@@ -54,6 +60,7 @@ async function startRun(workflow, tabId) {
     error: null,
     dismissed: false,
   };
+  currentState = state;
   await persistRun(state);
   startKeepAlive();
 
@@ -68,9 +75,18 @@ async function startRun(workflow, tabId) {
     persistRun(state);
   };
 
+  const control = {
+    shouldStop: () => runControl.stopped,
+    waitWhilePaused: async () => {
+      while (runControl.paused && !runControl.stopped) {
+        await new Promise((r) => setTimeout(r, 200));
+      }
+    },
+  };
+
   try {
-    const result = await WebBotExecutor.runWorkflow(workflow, tabId, onProgress);
-    state.status = result.ok ? "done" : "error";
+    const result = await WebBotExecutor.runWorkflow(workflow, tabId, onProgress, control);
+    state.status = runControl.stopped ? "stopped" : result.ok ? "done" : "error";
     state.ok = result.ok;
     state.files = result.files || {};
     state.datasets = result.datasets || {};
@@ -80,6 +96,8 @@ async function startRun(workflow, tabId) {
     state.error = e && e.message ? e.message : String(e);
   } finally {
     stopKeepAlive();
+    runControl = null;
+    currentState = null;
     await persistRun(state);
   }
 }
@@ -145,6 +163,27 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
   switch (msg.type) {
     case "RUN_WORKFLOW":
       if (msg.workflow && msg.tabId != null) startRun(msg.workflow, msg.tabId);
+      break;
+    case "PAUSE_RUN":
+      if (runControl && currentState) {
+        runControl.paused = true;
+        currentState.status = "paused";
+        persistRun(currentState);
+      }
+      break;
+    case "RESUME_RUN":
+      if (runControl && currentState) {
+        runControl.paused = false;
+        currentState.status = "running";
+        persistRun(currentState);
+      }
+      break;
+    case "STOP_RUN":
+      // Loop exits at its next checkpoint; the run's finally sets "stopped".
+      if (runControl) {
+        runControl.stopped = true;
+        runControl.paused = false;
+      }
       break;
     case "START_PICK":
       builderTabId = sender.tab && sender.tab.id != null ? sender.tab.id : null;

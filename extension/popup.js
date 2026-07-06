@@ -21,6 +21,10 @@ const runPillEl = document.getElementById("run-pill");
 const runPillText = document.getElementById("run-pill-text");
 const logEl = document.getElementById("log");
 const downloadsEl = document.getElementById("downloads");
+const runControlsEl = document.getElementById("run-controls");
+const pauseBtn = document.getElementById("pause");
+const resumeBtn = document.getElementById("resume");
+const stopBtn = document.getElementById("stop");
 const backBtn = document.getElementById("back");
 
 let workflows = [];
@@ -93,6 +97,8 @@ async function run() {
 
 const PILL = {
   running: { cls: "pill running", text: "Running…" },
+  paused: { cls: "pill paused", text: "Paused" },
+  stopped: { cls: "pill stopped", text: "Stopped" },
   done: { cls: "pill ok", text: "Finished" },
   error: { cls: "pill fail", text: "Finished with errors" },
 };
@@ -102,6 +108,12 @@ function renderProgress(state) {
   const pill = PILL[state.status] || PILL.running;
   runPillEl.className = pill.cls;
   runPillText.textContent = pill.text;
+
+  // Show pause/resume/stop only while the run is live.
+  const active = state.status === "running" || state.status === "paused";
+  runControlsEl.classList.toggle("hidden", !active);
+  pauseBtn.classList.toggle("hidden", state.status !== "running");
+  resumeBtn.classList.toggle("hidden", state.status !== "paused");
 
   logEl.innerHTML = "";
   for (const s of state.steps || []) {
@@ -180,6 +192,18 @@ chrome.runtime.onMessage.addListener((msg) => {
     showView("progress");
     renderProgress(msg.state);
   }
+});
+
+function sendControl(type) {
+  chrome.runtime.sendMessage({ __webbot: true, type });
+}
+
+pauseBtn.addEventListener("click", () => sendControl("PAUSE_RUN"));
+resumeBtn.addEventListener("click", () => sendControl("RESUME_RUN"));
+stopBtn.addEventListener("click", () => {
+  runPillText.textContent = "Stopping…";
+  stopBtn.disabled = true;
+  sendControl("STOP_RUN");
 });
 
 refreshBtn.addEventListener("click", loadWorkflows);
