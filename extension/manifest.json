@@ -7,7 +7,7 @@
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background.js",
-    "scripts": ["background.js"]
+    "scripts": ["executor.js", "background.js"]
   },
   "content_scripts": [
     {

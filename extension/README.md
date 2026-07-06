@@ -43,7 +43,11 @@ Re-download to refresh the token when it expires
 4. Watch the per-node progress; download any CSV/TXT it produces
 
 ## Notes
-- Keep the popup open while a workflow runs (v1 runs in the popup).
+- Runs execute in the **background service worker**, so you can close the popup
+  ("minimize") while a workflow runs. Click the toolbar icon again any time to
+  reopen and watch live progress; produced files appear as downloads when it
+  finishes. (Very long idle waits may suspend the MV3 worker — progress is
+  persisted, but avoid multi-minute Delay nodes with no page activity.)
 - The starting page: if the workflow has a **Go to URL** node it navigates the
   current tab; otherwise it runs on whatever tab is already open.
 - If you loaded the repo folder directly (not a download), enter the **Backend
