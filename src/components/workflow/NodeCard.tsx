@@ -22,7 +22,7 @@ export function NodeCard({ id, data, selected }: NodeProps) {
 
   return (
     <div
-      className={`group relative w-[210px] min-h-[62px] max-h-[200px] min-w-[180px] max-w-[240px] rounded-2xl border border-l-4 border-outline-variant ${cat.leftBar} bg-surface-container-lowest p-3 shadow-lg transition-all ${
+      className={`neu-raised group relative w-[210px] min-h-[62px] max-h-[200px] min-w-[180px] max-w-[240px] border-l-4 ${cat.leftBar} p-3 transition-all ${
         selected ? `ring-2 ${cat.ring}` : ""
       }`}
     >
@@ -37,7 +37,7 @@ export function NodeCard({ id, data, selected }: NodeProps) {
           deleteElements({ nodes: [{ id }] });
         }}
         title="Delete node"
-        className={`nodrag absolute -right-2 -top-2 z-20 flex h-6 w-6 items-center justify-center rounded-full border border-outline-variant bg-surface text-on-surface-variant shadow transition-opacity hover:border-rose-400 hover:text-rose-600 ${
+        className={`neu-raised-sm nodrag absolute -right-2 -top-2 z-20 flex h-6 w-6 items-center justify-center !rounded-full text-on-surface-variant transition-opacity hover:text-rose-600 ${
           selected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
         }`}
       >

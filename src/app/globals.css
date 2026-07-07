@@ -32,6 +32,50 @@ body {
   font-family: var(--font-sans), Inter, system-ui, sans-serif;
 }
 
+/* Neumorphism ("soft UI") surface + shadow tokens. Elements share the base
+   background and are shaped purely with a light highlight + dark shadow pair. */
+:root {
+  --neu-bg: #eef1fd;
+  --neu-light: #ffffff;
+  --neu-dark: #cdd3ee;
+}
+
+.neu-base {
+  background: var(--neu-bg);
+}
+
+.neu-raised {
+  background: var(--neu-bg);
+  border-radius: 1rem;
+  box-shadow: 6px 6px 14px var(--neu-dark), -6px -6px 14px var(--neu-light);
+}
+
+.neu-raised-sm {
+  background: var(--neu-bg);
+  border-radius: 0.75rem;
+  box-shadow: 4px 4px 9px var(--neu-dark), -4px -4px 9px var(--neu-light);
+}
+
+.neu-pressed {
+  background: var(--neu-bg);
+  border-radius: 0.75rem;
+  box-shadow: inset 4px 4px 8px var(--neu-dark), inset -4px -4px 8px var(--neu-light);
+}
+
+/* Raised control that presses in on interaction. */
+.neu-interactive {
+  background: var(--neu-bg);
+  box-shadow: 4px 4px 9px var(--neu-dark), -4px -4px 9px var(--neu-light);
+  transition: box-shadow 0.15s ease, transform 0.1s ease;
+}
+.neu-interactive:hover {
+  box-shadow: 3px 3px 7px var(--neu-dark), -3px -3px 7px var(--neu-light);
+}
+.neu-interactive:active {
+  box-shadow: inset 3px 3px 7px var(--neu-dark), inset -3px -3px 7px var(--neu-light);
+  transform: translateY(1px);
+}
+
 /* Canvas dot grid */
 .canvas-grid {
   background-size: 28px 28px;
