@@ -7,7 +7,7 @@ interface WorkflowMetricsProps {
 export function WorkflowMetrics({ nodes, connections }: WorkflowMetricsProps) {
   return (
     <div className="mb-8 grid grid-cols-2 gap-4">
-      <div className="rounded-lg border border-outline-variant/40 bg-surface-container-low p-3">
+      <div className="neu-pressed p-3">
         <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">
           Structure
         </p>
@@ -15,7 +15,7 @@ export function WorkflowMetrics({ nodes, connections }: WorkflowMetricsProps) {
           {nodes} node{nodes === 1 ? "" : "s"}
         </p>
       </div>
-      <div className="rounded-lg border border-outline-variant/40 bg-surface-container-low p-3">
+      <div className="neu-pressed p-3">
         <p className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">
           Connections
         </p>

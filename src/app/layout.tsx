@@ -1,22 +1,18 @@
 import type { Metadata } from "next";
-import { Sora, Inter, JetBrains_Mono } from "next/font/google";
+import { Manrope, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/AuthProvider";
 
-const sora = Sora({
-  variable: "--font-sora",
+const manrope = Manrope({
+  variable: "--font-manrope",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 const jetbrains = JetBrains_Mono({
   variable: "--font-jetbrains",
   subsets: ["latin"],
+  weight: ["700"],
 });
 
 export const metadata: Metadata = {
@@ -32,7 +28,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${sora.variable} ${inter.variable} ${jetbrains.variable} h-full antialiased`}
+      className={`${manrope.variable} ${jetbrains.variable} h-full antialiased`}
     >
       <body className="min-h-full">
         <AuthProvider>{children}</AuthProvider>

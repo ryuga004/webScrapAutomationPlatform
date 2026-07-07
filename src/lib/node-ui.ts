@@ -1,5 +1,9 @@
 import type { NodeCategory } from "./nodes";
 
+// Shared flat input styling for the node config form.
+export const CONFIG_INPUT =
+  "w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 text-sm text-on-surface outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20";
+
 // Static class strings per category (Tailwind can't see dynamically-built class
 // names, so every class used must appear literally somewhere in the source).
 export interface CatClasses {

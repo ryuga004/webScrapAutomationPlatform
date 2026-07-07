@@ -21,9 +21,9 @@ interface SidebarProps {
 // items render inert so they never route to a missing page.
 export function Sidebar({ navigation, onLogout }: SidebarProps) {
   return (
-    <aside className="fixed left-0 top-0 z-50 flex h-screen w-60 flex-col border-r border-outline-variant bg-surface-container-lowest p-4">
+    <aside className="neu-base fixed left-0 top-0 z-50 hidden h-screen w-64 flex-col p-4 md:flex">
       <div className="mb-8 flex items-center gap-3 px-2 py-4">
-        <Logo size={40} className="shadow rounded-lg" />
+        <Logo size={40} className="neu-raised-sm rounded-lg" />
         <div>
           <h1 className="font-display text-lg font-bold text-primary">WebBot</h1>
           <p className="text-[10px] uppercase tracking-widest text-on-surface-variant">
@@ -38,7 +38,7 @@ export function Sidebar({ navigation, onLogout }: SidebarProps) {
             <Link
               key={label}
               href={href ?? "#"}
-              className="flex items-center gap-3 rounded-lg bg-primary-container px-4 py-2.5 font-semibold text-on-primary-container"
+              className="neu-pressed flex items-center gap-3 !rounded-xl px-4 py-3 font-bold text-primary !bg-surface-container-high"
             >
               <Icon size={18} />
               <span>{label}</span>
@@ -47,7 +47,7 @@ export function Sidebar({ navigation, onLogout }: SidebarProps) {
             <span
               key={label}
               title="Coming soon"
-              className="flex cursor-default items-center gap-3 rounded-lg px-4 py-2.5 text-on-surface-variant opacity-70"
+              className="neu-ghost flex cursor-default items-center gap-3 rounded-lg px-4 py-2.5 text-on-surface-variant opacity-70"
             >
               <Icon size={18} />
               <span>{label}</span>
@@ -56,10 +56,10 @@ export function Sidebar({ navigation, onLogout }: SidebarProps) {
         )}
       </nav>
 
-      <div className="mt-auto space-y-1 border-t border-outline-variant pt-4">
+      <div className="mt-auto space-y-1 pt-4">
         <button
           onClick={onLogout}
-          className="flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-error transition-colors hover:bg-error/10"
+          className="neu-interactive flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-error"
         >
           <LogOut size={18} />
           <span>Logout</span>

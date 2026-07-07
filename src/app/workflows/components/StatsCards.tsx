@@ -21,12 +21,12 @@ function StatCard({
   tint: string;
 }) {
   return (
-    <div className="flex items-start justify-between rounded-xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm">
+    <div className="neu-raised flex items-start justify-between p-5">
       <div>
         <p className="text-sm text-on-surface-variant">{label}</p>
         <p className="mt-1 font-display text-2xl font-bold text-on-surface">{value}</p>
       </div>
-      <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${tint}`}>
+      <span className={`neu-raised-sm flex h-9 w-9 items-center justify-center ${tint}`}>
         <Icon size={18} />
       </span>
     </div>

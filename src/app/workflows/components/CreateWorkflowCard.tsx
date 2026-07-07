@@ -6,12 +6,12 @@ export function CreateWorkflowCard() {
   return (
     <Link
       href="/workflows/new"
-      className="flex min-h-[280px] flex-col items-center justify-center rounded-xl border border-dashed border-outline-variant bg-surface-container-low/50 p-6 text-center transition-all duration-300 hover:bg-surface-container-low"
+      className="neu-pressed group flex h-full min-h-[280px] flex-col items-center justify-center p-6 text-center transition-colors hover:text-primary"
     >
-      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">
+      <div className="neu-raised-sm mb-4 flex h-16 w-16 items-center justify-center !rounded-full text-on-surface-variant transition-transform duration-300 group-hover:scale-105 group-hover:text-primary">
         <Plus size={30} />
       </div>
-      <h4 className="font-display text-lg font-bold text-on-surface-variant">
+      <h4 className="font-display text-lg font-bold text-on-surface-variant group-hover:text-primary">
         Create New Workflow
       </h4>
       <p className="mt-2 max-w-[220px] text-sm text-on-surface-variant">

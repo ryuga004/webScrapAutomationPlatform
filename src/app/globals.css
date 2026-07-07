@@ -1,33 +1,35 @@
 @import "tailwindcss";
 
-/* Design tokens from the "Skyline Digital" reference design system. */
+/* Material 3 "soft teal" design tokens. */
 @theme inline {
-  --color-surface: #f5f6ff;
-  --color-surface-bright: #ffffff;
+  --color-surface: #f9f9ff;
+  --color-surface-bright: #f9f9ff;
   --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low: #edf0ff;
-  --color-surface-container: #e0e8ff;
-  --color-surface-container-high: #d8e2ff;
-  --color-surface-container-highest: #cfddff;
-  --color-on-surface: #252f43;
-  --color-on-surface-variant: #525b72;
-  --color-outline: #6d778e;
-  --color-outline-variant: #a3adc7;
-  --color-primary: #006382;
-  --color-on-primary: #e5f5ff;
-  --color-primary-container: #7bd1fa;
-  --color-on-primary-container: #00465d;
-  --color-background: #f5f6ff;
-  --color-on-background: #252f43;
-  --color-error: #b31b25;
+  --color-surface-container-low: #f0f3ff;
+  --color-surface-container: #e7eeff;
+  --color-surface-container-high: #dee8ff;
+  --color-surface-container-highest: #d8e3fa;
+  --color-on-surface: #111c2c;
+  --color-on-surface-variant: #40484d;
+  --color-outline: #70787d;
+  --color-outline-variant: #bfc8cd;
+  --color-primary: #00455b;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #005e7a;
+  --color-on-primary-container: #92d6f6;
+  --color-background: #f9f9ff;
+  --color-on-background: #111c2c;
+  --color-error: #ba1a1a;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #93000a;
 
-  --font-display: var(--font-sora);
-  --font-sans: var(--font-inter);
+  --font-display: var(--font-manrope);
+  --font-sans: var(--font-manrope);
   --font-mono: var(--font-jetbrains);
 }
 
 body {
-  background: var(--color-background);
+  background: var(--neu-bg);
   color: var(--color-on-background);
   font-family: var(--font-sans), Inter, system-ui, sans-serif;
 }
@@ -35,45 +37,83 @@ body {
 /* Neumorphism ("soft UI") surface + shadow tokens. Elements share the base
    background and are shaped purely with a light highlight + dark shadow pair. */
 :root {
-  --neu-bg: #eef1fd;
+  --neu-bg: #f9f9ff;
   --neu-light: #ffffff;
-  --neu-dark: #cdd3ee;
+  --neu-dark: #d1d9e6;
 }
 
 .neu-base {
   background: var(--neu-bg);
 }
 
+/* Extruded card surface. */
 .neu-raised {
   background: var(--neu-bg);
-  border-radius: 1rem;
-  box-shadow: 6px 6px 14px var(--neu-dark), -6px -6px 14px var(--neu-light);
+  border-radius: 1.5rem;
+  box-shadow: 8px 8px 16px var(--neu-dark), -8px -8px 16px var(--neu-light);
+  transition: box-shadow 0.3s ease, transform 0.1s ease;
 }
 
 .neu-raised-sm {
   background: var(--neu-bg);
   border-radius: 0.75rem;
-  box-shadow: 4px 4px 9px var(--neu-dark), -4px -4px 9px var(--neu-light);
+  box-shadow: 5px 5px 10px var(--neu-dark), -5px -5px 10px var(--neu-light);
 }
 
+/* Sunken "inlay" surface (search fields, metric wells). */
 .neu-pressed {
   background: var(--neu-bg);
-  border-radius: 0.75rem;
+  border-radius: 1rem;
   box-shadow: inset 4px 4px 8px var(--neu-dark), inset -4px -4px 8px var(--neu-light);
 }
 
 /* Raised control that presses in on interaction. */
 .neu-interactive {
   background: var(--neu-bg);
-  box-shadow: 4px 4px 9px var(--neu-dark), -4px -4px 9px var(--neu-light);
-  transition: box-shadow 0.15s ease, transform 0.1s ease;
+  border-radius: 1rem;
+  box-shadow: 5px 5px 10px var(--neu-dark), -5px -5px 10px var(--neu-light);
+  transition: box-shadow 0.2s ease, transform 0.1s ease;
 }
 .neu-interactive:hover {
-  box-shadow: 3px 3px 7px var(--neu-dark), -3px -3px 7px var(--neu-light);
+  box-shadow: 4px 4px 8px var(--neu-dark), -4px -4px 8px var(--neu-light);
 }
 .neu-interactive:active {
-  box-shadow: inset 3px 3px 7px var(--neu-dark), inset -3px -3px 7px var(--neu-light);
-  transform: translateY(1px);
+  box-shadow: inset 4px 4px 8px var(--neu-dark), inset -4px -4px 8px var(--neu-light);
+  transform: scale(0.98);
+}
+
+/* Primary call-to-action: keeps brand colour + soft-UI shadow for hierarchy. */
+.neu-primary {
+  background: var(--color-primary-container);
+  color: var(--color-on-primary);
+  border-radius: 1rem;
+  box-shadow: 5px 5px 10px var(--neu-dark), -5px -5px 10px var(--neu-light);
+  transition: box-shadow 0.2s ease, transform 0.1s ease, filter 0.2s ease;
+}
+.neu-primary:hover {
+  filter: brightness(1.08);
+  box-shadow: 4px 4px 8px var(--neu-dark), -4px -4px 8px var(--neu-light);
+}
+.neu-primary:active {
+  box-shadow: inset 3px 3px 7px rgba(0, 32, 46, 0.45);
+  transform: scale(0.98);
+}
+.neu-primary:disabled {
+  opacity: 0.6;
+}
+
+/* Subtle interactive surface for list rows / nav items (hover lift only). */
+.neu-ghost {
+  transition: box-shadow 0.2s ease, color 0.15s ease;
+}
+.neu-ghost:hover {
+  box-shadow: 4px 4px 8px var(--neu-dark), -4px -4px 8px var(--neu-light);
+}
+
+/* Frosted sticky top bar. */
+.glass-effect {
+  backdrop-filter: blur(12px);
+  background: color-mix(in srgb, var(--neu-bg) 80%, transparent);
 }
 
 /* Canvas dot grid */

@@ -10,7 +10,7 @@ export function UserAvatar({ user }: UserAvatarProps) {
   return (
     <div
       title={user?.email}
-      className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-container font-bold text-on-primary-container"
+      className="neu-raised-sm flex h-10 w-10 items-center justify-center !rounded-full font-bold text-primary"
     >
       {initial}
     </div>

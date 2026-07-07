@@ -9,7 +9,7 @@ interface SearchBarProps {
 // Reusable controlled search input.
 export function SearchBar({ value, onChange, placeholder = "Search" }: SearchBarProps) {
   return (
-    <div className="flex w-full items-center gap-3 rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-2 md:w-96">
+    <div className="neu-pressed flex h-12 w-full items-center gap-3 !rounded-full px-4">
       <Search size={18} className="text-on-surface-variant" />
       <input
         value={value}

@@ -5,8 +5,10 @@ import { useAuth } from "@/components/AuthProvider";
 import { useWorkflows } from "@/hooks/useWorkflows";
 import { useDownloadExtension } from "@/hooks/useDownloadExtension";
 import { Sidebar, type NavItem } from "./components/Sidebar";
-import { Topbar } from "./components/Topbar";
-import { WorkflowGrid } from "./components/WorkflowGrid";
+import { DashboardNav } from "./components/DashboardNav";
+import { PageHeader } from "./components/PageHeader";
+import { WorkflowCard } from "./components/WorkflowCard";
+import { CreateWorkflowCard } from "./components/CreateWorkflowCard";
 import { EmptyState } from "./components/EmptyState";
 
 const NAV: NavItem[] = [
@@ -18,13 +20,14 @@ export function WorkflowsScreen() {
   const { loading, query, setQuery, filteredWorkflows, deleteWorkflow } =
     useWorkflows();
   const { downloading, downloadExtension } = useDownloadExtension();
+  const noMatches = !loading && filteredWorkflows.length === 0 && query.length > 0;
 
   return (
-    <div className="min-h-screen bg-surface text-on-surface">
+    <div className="neu-base min-h-screen text-on-surface">
       <Sidebar navigation={NAV} onLogout={logout} />
 
-      <main className="ml-60 flex min-h-screen flex-col">
-        <Topbar
+      <main className="min-h-screen md:ml-64">
+        <DashboardNav
           query={query}
           onQueryChange={setQuery}
           downloading={downloading}
@@ -32,16 +35,38 @@ export function WorkflowsScreen() {
           user={user}
         />
 
-        <div className="mx-auto w-full max-w-6xl flex-1 p-8">
-          {loading ? (
-            <p className="text-on-surface-variant">Loading…</p>
-          ) : (
-            <WorkflowGrid workflows={filteredWorkflows} onDelete={deleteWorkflow} />
-          )}
+        <div className="p-6 pt-4 md:p-10 md:pt-6">
+          <PageHeader />
 
-          {!loading && filteredWorkflows.length === 0 && query && (
-            <EmptyState query={query} />
-          )}
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-12">
+            {loading ? (
+              <div className="neu-raised p-8 text-on-surface-variant md:col-span-2 lg:col-span-12">
+                Loading…
+              </div>
+            ) : noMatches ? (
+              <div className="neu-raised p-8 md:col-span-2 lg:col-span-12">
+                <EmptyState query={query} />
+              </div>
+            ) : (
+              <>
+                {filteredWorkflows.map((wf, i) => (
+                  <div
+                    key={wf.id}
+                    className={
+                      i === 0
+                        ? "md:col-span-2 lg:col-span-8"
+                        : "md:col-span-1 lg:col-span-4"
+                    }
+                  >
+                    <WorkflowCard workflow={wf} onDelete={deleteWorkflow} />
+                  </div>
+                ))}
+                <div className="md:col-span-1 lg:col-span-4">
+                  <CreateWorkflowCard />
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </main>
     </div>
